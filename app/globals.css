@@ -1,0 +1,405 @@
+@import "tailwindcss";
+
+/* ── Design Tokens ─────────────────────────────────────────────────────────── */
+
+:root {
+  /* Surfaces */
+  --bg: #09090b;
+  --card: #131316;
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-border-hover: rgba(255, 255, 255, 0.14);
+
+  /* Brand */
+  --primary: #1e40af;
+  --secondary: #3b82f6;
+  --accent: #059669;
+
+  /* Semantic */
+  --income: #10b981;
+  --income-muted: #065f46;
+  --expense: #f43f5e;
+  --expense-muted: #881337;
+  --sobrante-pos: #10b981;
+  --sobrante-neg: #f43f5e;
+  --destructive: #dc2626;
+
+  /* Text */
+  --foreground: #ffffff;
+  --muted: #94a3b8;
+  --muted-subtle: #8696a8;
+
+  /* Effects */
+  --blur-card: 16px;
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.25);
+  --shadow-card-lg: 0 8px 32px rgba(0, 0, 0, 0.35);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+
+  /* Safe areas */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+
+  /* Font */
+  --font-sans: var(--font-quicksand), ui-sans-serif, system-ui, sans-serif;
+
+  color-scheme: dark;
+}
+
+/* ── Theme (Tailwind 4) ────────────────────────────────────────────────────── */
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-border: var(--card-border);
+  --color-card-border-hover: var(--card-border-hover);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-income: var(--income);
+  --color-expense: var(--expense);
+  --color-destructive: var(--destructive);
+  --color-muted: var(--muted);
+  --color-muted-subtle: var(--muted-subtle);
+  --font-sans: var(--font-sans);
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+
+html {
+  background: var(--bg);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--bg);
+  color: var(--foreground);
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: clip;
+  touch-action: manipulation;
+}
+
+/* ── Browser Surfaces ──────────────────────────────────────────────────────── */
+
+::selection {
+  background: rgba(59, 130, 246, 0.35);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--secondary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.35);
+}
+
+/* Caret */
+input,
+textarea {
+  caret-color: var(--secondary);
+}
+
+/* Tabular nums utility */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Glass Card ────────────────────────────────────────────────────────────── */
+
+.glass {
+  background: rgba(19, 19, 22, 0.75);
+  backdrop-filter: blur(var(--blur-card));
+  -webkit-backdrop-filter: blur(var(--blur-card));
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.glass-sm {
+  background: rgba(19, 19, 22, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+}
+
+/* ── Background Atmosphere ─────────────────────────────────────────────────── */
+
+.bg-glow-tl {
+  position: fixed;
+  top: -20%;
+  left: -15%;
+  width: 65vw;
+  height: 65vw;
+  max-width: 700px;
+  max-height: 700px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.08), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.bg-glow-br {
+  position: fixed;
+  bottom: -20%;
+  right: -15%;
+  width: 60vw;
+  height: 60vw;
+  max-width: 650px;
+  max-height: 650px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.06), transparent 70%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.bg-base-gradient {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, #0e0e10 0%, #09090b 100%);
+  pointer-events: none;
+  z-index: -2;
+}
+
+/* ── Hero Aurora ───────────────────────────────────────────────────────────── */
+
+.hero-aurora {
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.hero-aurora::before {
+  content: "";
+  position: absolute;
+  top: -60%;
+  left: -20%;
+  width: 140%;
+  height: 120%;
+  background: conic-gradient(
+    from 200deg at 50% 0%,
+    rgba(16, 185, 129, 0.10),
+    rgba(59, 130, 246, 0.04),
+    rgba(16, 185, 129, 0.04),
+    transparent 65%
+  );
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 55%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 55%);
+}
+
+/* ── Load Choreography ─────────────────────────────────────────────────────── */
+
+@keyframes fade-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.choreo {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: fade-rise 200ms var(--ease-strong) forwards;
+}
+
+.choreo-d1 { animation-delay: 60ms; }
+.choreo-d2 { animation-delay: 120ms; }
+.choreo-d3 { animation-delay: 180ms; }
+
+.choreo-auth {
+  opacity: 0;
+  transform: translateY(6px);
+  animation: fade-rise 250ms var(--ease-strong) 80ms forwards;
+}
+
+/* ── Press Physics ─────────────────────────────────────────────────────────── */
+
+.pressable {
+  transition: transform 100ms ease-out;
+}
+
+.pressable:active {
+  transform: scale(0.97);
+}
+
+/* ── Collapse Animation ────────────────────────────────────────────────────── */
+
+.collapse-grid {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.collapse-grid.is-open {
+  grid-template-rows: 1fr;
+}
+
+.collapse-body {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 0;
+  transition: opacity 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.collapse-grid.is-open .collapse-body {
+  opacity: 1;
+}
+
+/* ── Tab Content Fade ──────────────────────────────────────────────────────── */
+
+@keyframes content-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.tab-fade-in {
+  animation: content-fade 120ms ease-out;
+}
+
+/* ── Empty State Ring ──────────────────────────────────────────────────────── */
+
+.empty-ring {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--card-border);
+  color: var(--muted-subtle);
+  opacity: 0.5;
+}
+
+/* ── Modal (centered dialog) ──────────────────────────────────────────────── */
+
+@keyframes modal-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modal-panel-in {
+  from { transform: scale(0.96); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(var(--blur-card));
+  -webkit-backdrop-filter: blur(var(--blur-card));
+  opacity: 0;
+  animation: modal-backdrop-in 200ms ease-out forwards;
+}
+
+.modal-backdrop.is-open {
+  opacity: 1;
+}
+
+.modal-panel {
+  width: min(100%, 28rem);
+  margin-inline: 1rem;
+  max-height: 85dvh;
+  overflow-y: auto;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card-lg);
+  transform: scale(0.96);
+  opacity: 0;
+  animation: modal-panel-in 200ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+.modal-panel.is-open {
+  transform: scale(1);
+  opacity: 1;
+}
+
+/* Exit animation */
+.modal-backdrop:not(.is-open) {
+  animation: modal-backdrop-in 150ms ease-out reverse forwards;
+}
+
+.modal-panel:not(.is-open) {
+  animation: modal-panel-in 150ms cubic-bezier(0.23, 1, 0.32, 1) reverse forwards;
+}
+
+/* ── Toast ─────────────────────────────────────────────────────────────────── */
+
+@keyframes toast-in {
+  from { transform: translateY(-8px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes toast-out {
+  from { transform: translateY(0); opacity: 1; }
+  to   { transform: translateY(-8px); opacity: 0; }
+}
+
+.toast-card {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.toast-card.is-visible {
+  animation: toast-in 200ms ease-out forwards;
+}
+
+.toast-card.is-leaving {
+  animation: toast-out 150ms ease-out forwards;
+}
+
+/* ── Reduced Motion ────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Touch ─────────────────────────────────────────────────────────────────── */
+
+button,
+a,
+[role="button"],
+input[type="submit"] {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+/* ── Form elements dark styling ────────────────────────────────────────────── */
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7);
+  cursor: pointer;
+}
