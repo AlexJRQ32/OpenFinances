@@ -39,6 +39,8 @@ interface MovementItem {
   category: string | null;
   dayOfMonth?: number | null;
   occurredOn?: string | null;
+  originalAmount?: string | null;
+  currency?: string | null;
 }
 
 interface QuincenaData {
@@ -65,6 +67,7 @@ interface DashboardClientProps {
   variableIncomesTotal: string;
   fixedExpensesTotal: string;
   variableExpensesTotal: string;
+  usdRate: string | null;
   quincenal?: {
     q1: QuincenaData;
     q2: QuincenaData;
@@ -83,6 +86,20 @@ const fmtCRC = new Intl.NumberFormat("es-CR", {
 
 function formatAmount(amount: string | number): string {
   return fmtCRC.format(Number(amount));
+}
+
+function formatUsd(amount: string | number): string {
+  return "$" + Number(amount).toFixed(2);
+}
+
+// USD rows show their original dollar amount plus the canonical CRC stored amount (D8).
+function formatMovement(
+  item: Pick<MovementItem, "amount" | "originalAmount" | "currency">
+): string {
+  if (item.currency === "USD" && item.originalAmount) {
+    return `${formatUsd(item.originalAmount)} · ${fmtCRC.format(Number(item.amount))}`;
+  }
+  return fmtCRC.format(Number(item.amount));
 }
 
 function formatAmountCompact(amount: string | number): string {
@@ -233,6 +250,7 @@ function DashboardInner({
   variableIncomesTotal,
   fixedExpensesTotal,
   variableExpensesTotal,
+  usdRate,
   quincenal,
   requestDelete,
 }: DashboardClientProps & { requestDelete: (description: string, onConfirm: () => void) => void }) {
@@ -391,6 +409,7 @@ function DashboardInner({
             startTransition={startTransition}
             formType="fixed"
             kind="income"
+            usdRate={usdRate}
             modalTitle="Agregar ingreso fijo"
             successMessage="Ingreso fijo agregado"
             requestDelete={requestDelete}
@@ -408,6 +427,7 @@ function DashboardInner({
             startTransition={startTransition}
             formType="fixed"
             kind="expense"
+            usdRate={usdRate}
             modalTitle="Agregar gasto fijo"
             successMessage="Gasto fijo agregado"
             requestDelete={requestDelete}
@@ -432,6 +452,7 @@ function DashboardInner({
           pending={pending}
           startTransition={startTransition}
           defaultDate={variableDefaultDate}
+          usdRate={usdRate}
           requestDelete={requestDelete}
         />
       </section>
@@ -560,6 +581,7 @@ function FixedSectionCard({
   kind,
   modalTitle,
   successMessage,
+  usdRate,
   requestDelete,
 }: {
   title: string;
@@ -576,6 +598,7 @@ function FixedSectionCard({
   kind: "income" | "expense";
   modalTitle: string;
   successMessage: string;
+  usdRate: string | null;
   requestDelete: (description: string, onConfirm: () => void) => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -636,8 +659,8 @@ function FixedSectionCard({
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className={`text-sm font-medium tabular ${colorClass}`}>
-                  {formatAmount(item.amount)}
+                <span className={`text-sm font-medium tabular ${colorClass} text-left`}>
+                  {formatMovement(item)}
                 </span>
                 <button
                   type="button"
@@ -712,6 +735,7 @@ function FixedSectionCard({
             closeModal();
           }}
           startTransition={startTransition}
+          usdRate={usdRate}
         />
       </Modal>
     </div>
@@ -728,6 +752,7 @@ function VariableTabs({
   pending,
   startTransition,
   defaultDate,
+  usdRate,
   requestDelete,
 }: {
   variableIncomes: MovementItem[];
@@ -737,6 +762,7 @@ function VariableTabs({
   pending: boolean;
   startTransition: (fn: () => Promise<void>) => void;
   defaultDate?: string;
+  usdRate: string | null;
   requestDelete: (description: string, onConfirm: () => void) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"incomes" | "expenses">("incomes");
@@ -789,6 +815,7 @@ function VariableTabs({
           startTransition={startTransition}
           kind="income"
           emptyMessage="Sin ingresos variables este ciclo"
+          usdRate={usdRate}
           modalTitle="Agregar ingreso variable"
           successMessage="Ingreso variable agregado"
           defaultDate={defaultDate}
@@ -807,6 +834,7 @@ function VariableTabs({
           startTransition={startTransition}
           kind="expense"
           emptyMessage="Sin gastos variables este ciclo"
+          usdRate={usdRate}
           modalTitle="Agregar gasto variable"
           successMessage="Gasto variable agregado"
           defaultDate={defaultDate}
@@ -831,6 +859,7 @@ function VariablePanel({
   modalTitle,
   successMessage,
   defaultDate,
+  usdRate,
   requestDelete,
 }: {
   items: MovementItem[];
@@ -845,6 +874,7 @@ function VariablePanel({
   modalTitle: string;
   successMessage: string;
   defaultDate?: string;
+  usdRate: string | null;
   requestDelete: (description: string, onConfirm: () => void) => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -909,8 +939,8 @@ function VariablePanel({
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className={`text-sm font-medium tabular ${colorClass}`}>
-                  {formatAmount(item.amount)}
+                <span className={`text-sm font-medium tabular ${colorClass} text-left`}>
+                  {formatMovement(item)}
                 </span>
                 <button
                   type="button"
@@ -986,6 +1016,7 @@ function VariablePanel({
           }}
           startTransition={startTransition}
           defaultDate={defaultDate}
+          usdRate={usdRate}
         />
       </Modal>
     </div>
@@ -1003,6 +1034,7 @@ function AddForm({
   onSuccess,
   startTransition,
   defaultDate,
+  usdRate,
 }: {
   type: "fixed" | "variable";
   kind: "income" | "expense";
@@ -1012,12 +1044,19 @@ function AddForm({
   onSuccess: () => void;
   startTransition: (fn: () => Promise<void>) => void;
   defaultDate?: string;
+  usdRate: string | null;
 }) {
   const categories = kind === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
   const isEdit = item != null;
 
   const formRef = useRef<HTMLFormElement>(null);
   const [error, setError] = useState<string | null>(null);
+  // Editing a USD row: the editable figure is the original USD amount (D8),
+  // the stored CRC amount is a derived display value, not an input.
+  const initialCurrency = item?.currency === "USD" ? "USD" : "CRC";
+  const [currency, setCurrency] = useState<"USD" | "CRC">(initialCurrency);
+  const initialAmount =
+    item?.currency === "USD" && item?.originalAmount ? item.originalAmount : (item?.amount ?? "");
 
   return (
     <form
@@ -1054,28 +1093,36 @@ function AddForm({
         className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm text-foreground placeholder:text-muted-subtle focus:border-secondary focus:outline-none"
       />
       <div className="grid grid-cols-2 gap-2">
-        <input
-          name="amount"
-          type="number"
-          step="0.01"
-          min="0.01"
-          placeholder="Monto"
-          required
-          inputMode="decimal"
-          defaultValue={item?.amount ?? ""}
-          className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm tabular text-foreground placeholder:text-muted-subtle focus:border-secondary focus:outline-none"
-        />
+        <div className="relative">
+          <input
+            name="amount"
+            type="number"
+            step="0.01"
+            min="0.01"
+            placeholder={currency === "USD" ? "Monto (USD)" : "Monto"}
+            required
+            inputMode="decimal"
+            defaultValue={initialAmount}
+            aria-label={currency === "USD" ? "Monto en dólares" : "Monto en colones"}
+            className="h-[44px] w-full rounded-lg border border-card-border bg-background pl-3 pr-10 text-sm tabular text-foreground placeholder:text-muted-subtle focus:border-secondary focus:outline-none"
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-subtle"
+          >
+            {currency === "USD" ? "$" : "₡"}
+          </span>
+        </div>
         <div className="relative">
           <select
-            name="category"
-            aria-label="Categoría"
-            defaultValue={item?.category ?? ""}
+            name="currency"
+            aria-label="Moneda"
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value === "USD" ? "USD" : "CRC")}
             className="h-[44px] w-full appearance-none rounded-lg border border-card-border bg-background px-3 pr-8 text-sm text-foreground focus:border-secondary focus:outline-none"
           >
-            <option value="">Sin categoría</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
+            <option value="CRC">CRC ₡</option>
+            <option value="USD">USD $</option>
           </select>
           <svg
             aria-hidden="true"
@@ -1088,6 +1135,26 @@ function AddForm({
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </div>
+      </div>
+      {currency === "USD" && (
+        <p className="text-xs text-muted">
+          {usdRate
+            ? `Se convierte a colones al crear: ₡${usdRate} por USD, tasa venta BCCR`
+            : "Cuando se elija el monto en USD, se usará la tasa venta de BCCR"}
+        </p>
+      )}
+      <div className="relative">
+        <select
+          name="category"
+          aria-label="Categoría"
+          defaultValue={item?.category ?? ""}
+          className="h-[44px] w-full appearance-none rounded-lg border border-card-border bg-background px-3 pr-8 text-sm text-foreground focus:border-secondary focus:outline-none"
+        >
+          <option value="">Sin categoría</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
       </div>
       {type === "fixed" ? (
         <div className="flex flex-col gap-1">

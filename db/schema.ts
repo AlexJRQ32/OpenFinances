@@ -4,6 +4,7 @@ import {
   uuid,
   text,
   numeric,
+  varchar,
   integer,
   date,
   timestamp,
@@ -13,6 +14,16 @@ import {
 // ── Enums ────────────────────────────────────────────────────────────────────
 
 export const cycleModeEnum = pgEnum("cycle_mode", ["quincenal", "mensual"]);
+
+// ── Currency audit columns (v2 USD/CRC) ──────────────────────────────────────
+// amount is ALWAYS canonical CRC. For USD entries: originalAmount = USD input,
+// exchangeRate = frozen venta rate at create/edit time. Null currency/rate on
+// legacy rows = implicit CRC (non-destructive migration).
+const currencyCols = () => ({
+  originalAmount: numeric("original_amount", { precision: 12, scale: 2 }),
+  currency: varchar("currency", { length: 3 }),
+  exchangeRate: numeric("exchange_rate", { precision: 12, scale: 4 }),
+});
 
 // ── users ────────────────────────────────────────────────────────────────────
 
@@ -45,6 +56,7 @@ export const fixedIncomes = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    ...currencyCols(),
   },
   (table) => [index("fixed_incomes_user_id_idx").on(table.userId)]
 );
@@ -65,6 +77,7 @@ export const variableIncomes = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    ...currencyCols(),
   },
   (table) => [index("variable_incomes_user_id_idx").on(table.userId)]
 );
@@ -85,6 +98,7 @@ export const fixedExpenses = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    ...currencyCols(),
   },
   (table) => [index("fixed_expenses_user_id_idx").on(table.userId)]
 );
@@ -105,6 +119,7 @@ export const variableExpenses = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    ...currencyCols(),
   },
   (table) => [index("variable_expenses_user_id_idx").on(table.userId)]
 );

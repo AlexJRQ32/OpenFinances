@@ -21,6 +21,7 @@ import {
   parseUpdateTransaction,
 } from "@/lib/validators";
 import { ownershipWhere } from "@/lib/ownership";
+import { prepareCurrencyAmount } from "@/lib/exchange";
 
 // ── Validation helpers ───────────────────────────────────────────────────────
 // (pure validators moved to lib/validators.ts — unit-testable standalone)
@@ -33,12 +34,13 @@ export async function createFixedIncome(formData: FormData) {
   const amount = validateAmount(formData.get("amount"));
   const category = validateCategory(formData.get("category"));
   const dayOfMonth = validateDayOfMonth(formData.get("dayOfMonth"));
+  const money = await prepareCurrencyAmount(amount, formData.get("currency"));
 
   const db = getDb();
   await db.insert(fixedIncomes).values({
     userId: user.id,
     description,
-    amount,
+    ...money,
     category,
     dayOfMonth,
   });
@@ -65,12 +67,13 @@ export async function createFixedExpense(formData: FormData) {
   const amount = validateAmount(formData.get("amount"));
   const category = validateCategory(formData.get("category"));
   const dayOfMonth = validateDayOfMonth(formData.get("dayOfMonth"));
+  const money = await prepareCurrencyAmount(amount, formData.get("currency"));
 
   const db = getDb();
   await db.insert(fixedExpenses).values({
     userId: user.id,
     description,
-    amount,
+    ...money,
     category,
     dayOfMonth,
   });
@@ -97,12 +100,13 @@ export async function createVariableIncome(formData: FormData) {
   const amount = validateAmount(formData.get("amount"));
   const category = validateCategory(formData.get("category"));
   const occurredOn = validateDate(formData.get("occurredOn"));
+  const money = await prepareCurrencyAmount(amount, formData.get("currency"));
 
   const db = getDb();
   await db.insert(variableIncomes).values({
     userId: user.id,
     description,
-    amount,
+    ...money,
     category,
     occurredOn,
   });
@@ -129,12 +133,13 @@ export async function createVariableExpense(formData: FormData) {
   const amount = validateAmount(formData.get("amount"));
   const category = validateCategory(formData.get("category"));
   const occurredOn = validateDate(formData.get("occurredOn"));
+  const money = await prepareCurrencyAmount(amount, formData.get("currency"));
 
   const db = getDb();
   await db.insert(variableExpenses).values({
     userId: user.id,
     description,
-    amount,
+    ...money,
     category,
     occurredOn,
   });
@@ -168,9 +173,10 @@ export async function updateTransaction(formData: FormData) {
   const table = UPDATE_TABLES[input.kind];
 
   const db = getDb();
+  const money = await prepareCurrencyAmount(input.amount, formData.get("currency"));
   const set: Record<string, string | number | null> = {
     description: input.description,
-    amount: input.amount,
+    ...money,
     category: input.category,
   };
   if (input.kind.startsWith("fixed")) set.dayOfMonth = input.dayOfMonth;
