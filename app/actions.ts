@@ -9,52 +9,22 @@ import {
   variableExpenses,
   users,
 } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getCurrentUser, signIn } from "@/auth";
 import { hashPassword } from "@/lib/password";
+import {
+  validateDescription,
+  validateAmount,
+  validateCategory,
+  validateDayOfMonth,
+  validateDate,
+  parseUpdateTransaction,
+} from "@/lib/validators";
+import { ownershipWhere } from "@/lib/ownership";
+import { prepareCurrencyAmount } from "@/lib/exchange";
 
 // ── Validation helpers ───────────────────────────────────────────────────────
-
-function validateDescription(raw: unknown): string {
-  const desc = String(raw ?? "").trim();
-  if (!desc) throw new Error("La descripción es obligatoria");
-  if (desc.length > 120) throw new Error("Máximo 120 caracteres");
-  return desc;
-}
-
-function validateAmount(raw: unknown): string {
-  const num = Number(raw);
-  if (isNaN(num) || num <= 0) throw new Error("El monto debe ser mayor a 0");
-  // Check ≤ 2 decimals
-  const str = String(raw);
-  const dotIdx = str.indexOf(".");
-  if (dotIdx !== -1 && str.length - dotIdx - 1 > 2) {
-    throw new Error("Máximo 2 decimales");
-  }
-  return num.toFixed(2);
-}
-
-function validateCategory(raw: unknown): string | null {
-  if (raw === null || raw === undefined || raw === "") return null;
-  const cat = String(raw).trim();
-  if (cat.length > 40) throw new Error("Categoría: máximo 40 caracteres");
-  return cat;
-}
-
-function validateDayOfMonth(raw: unknown): number {
-  const day = Number(raw);
-  if (!Number.isInteger(day) || day < 1 || day > 31) {
-    throw new Error("Día del mes: 1–31");
-  }
-  return day;
-}
-
-function validateDate(raw: unknown): string {
-  const str = String(raw ?? "").trim();
-  const d = new Date(str + "T00:00:00Z");
-  if (isNaN(d.getTime())) throw new Error("Fecha inválida");
-  return str;
-}
+// (pure validators moved to lib/validators.ts — unit-testable standalone)
 
 // ── Fixed Incomes ────────────────────────────────────────────────────────────
 
@@ -64,12 +34,13 @@ export async function createFixedIncome(formData: FormData) {
   const amount = validateAmount(formData.get("amount"));
   const category = validateCategory(formData.get("category"));
   const dayOfMonth = validateDayOfMonth(formData.get("dayOfMonth"));
+  const money = await prepareCurrencyAmount(amount, formData.get("currency"));
 
   const db = getDb();
   await db.insert(fixedIncomes).values({
     userId: user.id,
     description,
-    amount,
+    ...money,
     category,
     dayOfMonth,
   });
@@ -84,7 +55,7 @@ export async function deleteFixedIncome(formData: FormData) {
   const db = getDb();
   await db
     .delete(fixedIncomes)
-    .where(eq(fixedIncomes.id, id));
+    .where(ownershipWhere(fixedIncomes, id, user.id));
   revalidatePath("/");
 }
 
@@ -96,12 +67,13 @@ export async function createFixedExpense(formData: FormData) {
   const amount = validateAmount(formData.get("amount"));
   const category = validateCategory(formData.get("category"));
   const dayOfMonth = validateDayOfMonth(formData.get("dayOfMonth"));
+  const money = await prepareCurrencyAmount(amount, formData.get("currency"));
 
   const db = getDb();
   await db.insert(fixedExpenses).values({
     userId: user.id,
     description,
-    amount,
+    ...money,
     category,
     dayOfMonth,
   });
@@ -116,7 +88,7 @@ export async function deleteFixedExpense(formData: FormData) {
   const db = getDb();
   await db
     .delete(fixedExpenses)
-    .where(eq(fixedExpenses.id, id));
+    .where(ownershipWhere(fixedExpenses, id, user.id));
   revalidatePath("/");
 }
 
@@ -128,12 +100,13 @@ export async function createVariableIncome(formData: FormData) {
   const amount = validateAmount(formData.get("amount"));
   const category = validateCategory(formData.get("category"));
   const occurredOn = validateDate(formData.get("occurredOn"));
+  const money = await prepareCurrencyAmount(amount, formData.get("currency"));
 
   const db = getDb();
   await db.insert(variableIncomes).values({
     userId: user.id,
     description,
-    amount,
+    ...money,
     category,
     occurredOn,
   });
@@ -148,7 +121,7 @@ export async function deleteVariableIncome(formData: FormData) {
   const db = getDb();
   await db
     .delete(variableIncomes)
-    .where(eq(variableIncomes.id, id));
+    .where(ownershipWhere(variableIncomes, id, user.id));
   revalidatePath("/");
 }
 
@@ -160,12 +133,13 @@ export async function createVariableExpense(formData: FormData) {
   const amount = validateAmount(formData.get("amount"));
   const category = validateCategory(formData.get("category"));
   const occurredOn = validateDate(formData.get("occurredOn"));
+  const money = await prepareCurrencyAmount(amount, formData.get("currency"));
 
   const db = getDb();
   await db.insert(variableExpenses).values({
     userId: user.id,
     description,
-    amount,
+    ...money,
     category,
     occurredOn,
   });
@@ -180,7 +154,44 @@ export async function deleteVariableExpense(formData: FormData) {
   const db = getDb();
   await db
     .delete(variableExpenses)
-    .where(eq(variableExpenses.id, id));
+    .where(ownershipWhere(variableExpenses, id, user.id));
+  revalidatePath("/");
+}
+
+// ── Update transaction ───────────────────────────────────────────────────────
+
+const UPDATE_TABLES = {
+  "fixed-income": fixedIncomes,
+  "fixed-expense": fixedExpenses,
+  "variable-income": variableIncomes,
+  "variable-expense": variableExpenses,
+} as const;
+
+export async function updateTransaction(formData: FormData) {
+  const user = await getCurrentUser();
+  const input = parseUpdateTransaction(formData);
+  const table = UPDATE_TABLES[input.kind];
+
+  const db = getDb();
+  const money = await prepareCurrencyAmount(input.amount, formData.get("currency"));
+  const set: Record<string, string | number | null> = {
+    description: input.description,
+    ...money,
+    category: input.category,
+  };
+  if (input.kind.startsWith("fixed")) set.dayOfMonth = input.dayOfMonth;
+  else set.occurredOn = input.occurredOn;
+
+  const [updated] = await db
+    .update(table)
+    .set(set)
+    .where(ownershipWhere(table, input.id, user.id))
+    .returning({ id: table.id });
+
+  if (!updated) {
+    // Covers missing id AND someone else's row (ownership/Cross-user)
+    throw new Error("Movimiento no encontrado");
+  }
   revalidatePath("/");
 }
 

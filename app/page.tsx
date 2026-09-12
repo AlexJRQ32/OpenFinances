@@ -4,6 +4,7 @@ import { shiftToOffset } from "@/lib/cycle";
 import { cookies } from "next/headers";
 import DashboardClient from "@/app/_components/DashboardClient";
 import AuthClient from "@/app/_components/AuthClient";
+import { fetchRate } from "@/lib/exchange";
 import { DatabaseIcon } from "@/app/_components/icons";
 
 export default async function Home() {
@@ -40,7 +41,7 @@ async function Dashboard() {
       const month = localNow.getUTCMonth();
       const currentIndex: 1 | 2 = localNow.getUTCDate() <= 15 ? 1 : 2;
 
-      const [q1Summary, q2Summary] = await Promise.all([
+      const [q1Summary, q2Summary, usdRate] = await Promise.all([
         computeSummary(
           user.id,
           "quincenal",
@@ -51,6 +52,7 @@ async function Dashboard() {
           "quincenal",
           new Date(Date.UTC(year, month, 16))
         ),
+        safeUsdRate(),
       ]);
 
       const currentSummary = currentIndex === 1 ? q1Summary : q2Summary;
@@ -73,10 +75,14 @@ async function Dashboard() {
             q2: toQuincenaData(q2Summary),
             currentIndex,
           }}
+          usdRate={usdRate}
         />
       );
     } else {
-      const summary = await computeSummary(user.id, user.cycleMode, localNow);
+      const [summary, usdRate] = await Promise.all([
+        computeSummary(user.id, user.cycleMode, localNow),
+        safeUsdRate(),
+      ]);
 
       content = (
         <DashboardClient
@@ -91,6 +97,7 @@ async function Dashboard() {
           variableIncomesTotal={summary.variableIncomesTotal}
           fixedExpensesTotal={summary.fixedExpensesTotal}
           variableExpensesTotal={summary.variableExpensesTotal}
+          usdRate={usdRate}
         />
       );
     }
@@ -125,6 +132,19 @@ async function Dashboard() {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * Current USD→CRC rate for the form hint. Never blocks the dashboard:
+ * if the rate source is down the hint is hidden and USD entries are rejected
+ * server-side with a clear message (D5).
+ */
+async function safeUsdRate(): Promise<string | null> {
+  try {
+    return (await fetchRate()).toFixed(2);
+  } catch {
+    return null;
+  }
+}
+
 function toMovementItem(item: {
   id: string;
   description: string;
@@ -132,6 +152,8 @@ function toMovementItem(item: {
   category: string | null;
   dayOfMonth?: number | null;
   occurredOn?: string | null;
+  originalAmount?: string | null;
+  currency?: string | null;
 }) {
   return {
     id: item.id,
@@ -140,6 +162,8 @@ function toMovementItem(item: {
     category: item.category,
     dayOfMonth: item.dayOfMonth ?? null,
     occurredOn: item.occurredOn ?? null,
+    originalAmount: item.originalAmount ?? null,
+    currency: item.currency ?? null,
   };
 }
 

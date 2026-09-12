@@ -10,6 +10,7 @@ import {
   deleteVariableIncome,
   createVariableExpense,
   deleteVariableExpense,
+  updateTransaction,
   updateCycleMode,
 } from "@/app/actions";
 import type { CycleMode } from "@/lib/cycle";
@@ -24,6 +25,7 @@ import {
   RepeatIcon,
   ZapIcon,
   WalletIcon,
+  PencilIcon,
 } from "./icons";
 import Modal from "./Modal";
 import { ToastProvider, useToast } from "./Toast";
@@ -37,6 +39,8 @@ interface MovementItem {
   category: string | null;
   dayOfMonth?: number | null;
   occurredOn?: string | null;
+  originalAmount?: string | null;
+  currency?: string | null;
 }
 
 interface QuincenaData {
@@ -63,6 +67,7 @@ interface DashboardClientProps {
   variableIncomesTotal: string;
   fixedExpensesTotal: string;
   variableExpensesTotal: string;
+  usdRate: string | null;
   quincenal?: {
     q1: QuincenaData;
     q2: QuincenaData;
@@ -81,6 +86,20 @@ const fmtCRC = new Intl.NumberFormat("es-CR", {
 
 function formatAmount(amount: string | number): string {
   return fmtCRC.format(Number(amount));
+}
+
+function formatUsd(amount: string | number): string {
+  return "$" + Number(amount).toFixed(2);
+}
+
+// USD rows show their original dollar amount plus the canonical CRC stored amount (D8).
+function formatMovement(
+  item: Pick<MovementItem, "amount" | "originalAmount" | "currency">
+): string {
+  if (item.currency === "USD" && item.originalAmount) {
+    return `${formatUsd(item.originalAmount)} · ${fmtCRC.format(Number(item.amount))}`;
+  }
+  return fmtCRC.format(Number(item.amount));
 }
 
 function formatAmountCompact(amount: string | number): string {
@@ -113,6 +132,14 @@ function formatDateES(iso: string | null): string {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
+}
+
+function editTitle(base: string): string {
+  return base.replace("Agregar", "Editar");
+}
+
+function editMessage(base: string): string {
+  return base.replace("agregado", "actualizado");
 }
 
 function getDayChipLabel(dayOfMonth: number | null | undefined): string {
@@ -223,6 +250,7 @@ function DashboardInner({
   variableIncomesTotal,
   fixedExpensesTotal,
   variableExpensesTotal,
+  usdRate,
   quincenal,
   requestDelete,
 }: DashboardClientProps & { requestDelete: (description: string, onConfirm: () => void) => void }) {
@@ -381,6 +409,7 @@ function DashboardInner({
             startTransition={startTransition}
             formType="fixed"
             kind="income"
+            usdRate={usdRate}
             modalTitle="Agregar ingreso fijo"
             successMessage="Ingreso fijo agregado"
             requestDelete={requestDelete}
@@ -398,6 +427,7 @@ function DashboardInner({
             startTransition={startTransition}
             formType="fixed"
             kind="expense"
+            usdRate={usdRate}
             modalTitle="Agregar gasto fijo"
             successMessage="Gasto fijo agregado"
             requestDelete={requestDelete}
@@ -422,6 +452,7 @@ function DashboardInner({
           pending={pending}
           startTransition={startTransition}
           defaultDate={variableDefaultDate}
+          usdRate={usdRate}
           requestDelete={requestDelete}
         />
       </section>
@@ -550,6 +581,7 @@ function FixedSectionCard({
   kind,
   modalTitle,
   successMessage,
+  usdRate,
   requestDelete,
 }: {
   title: string;
@@ -566,11 +598,25 @@ function FixedSectionCard({
   kind: "income" | "expense";
   modalTitle: string;
   successMessage: string;
+  usdRate: string | null;
   requestDelete: (description: string, onConfirm: () => void) => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<MovementItem | null>(null);
   const colorClass = totalColor === "income" ? "text-income" : "text-expense";
   const { toast } = useToast();
+
+  const typeKey = kind === "income" ? "fixed-income" : "fixed-expense";
+
+  function closeModal() {
+    setModalOpen(false);
+    setEditing(null);
+  }
+
+  function requestEdit(item: MovementItem) {
+    setEditing(item);
+    setModalOpen(true);
+  }
 
   return (
     <div className="glass p-4">
@@ -613,9 +659,18 @@ function FixedSectionCard({
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className={`text-sm font-medium tabular ${colorClass}`}>
-                  {formatAmount(item.amount)}
+                <span className={`text-sm font-medium tabular ${colorClass} text-left`}>
+                  {formatMovement(item)}
                 </span>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => requestEdit(item)}
+                  className="pressable flex h-[44px] w-[44px] items-center justify-center rounded-lg text-muted-subtle transition-colors duration-[var(--duration-fast)] hover:bg-foreground/10 hover:text-foreground active:bg-foreground/15 active:text-foreground disabled:opacity-40"
+                  aria-label={`Editar ${item.description}`}
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
                 <button
                   type="button"
                   disabled={pending}
@@ -663,18 +718,24 @@ function FixedSectionCard({
       {/* Modal with form */}
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={modalTitle}
+        onClose={closeModal}
+        title={editing ? editTitle(modalTitle) : modalTitle}
       >
         <AddForm
           type={formType}
           kind={kind}
-          action={createAction}
+          typeKey={typeKey}
+          item={editing}
+          action={editing ? updateTransaction : createAction}
           onSuccess={() => {
-            setModalOpen(false);
-            toast({ message: successMessage, variant: "success" });
+            toast({
+              message: editing ? editMessage(successMessage) : successMessage,
+              variant: "success",
+            });
+            closeModal();
           }}
           startTransition={startTransition}
+          usdRate={usdRate}
         />
       </Modal>
     </div>
@@ -691,6 +752,7 @@ function VariableTabs({
   pending,
   startTransition,
   defaultDate,
+  usdRate,
   requestDelete,
 }: {
   variableIncomes: MovementItem[];
@@ -700,6 +762,7 @@ function VariableTabs({
   pending: boolean;
   startTransition: (fn: () => Promise<void>) => void;
   defaultDate?: string;
+  usdRate: string | null;
   requestDelete: (description: string, onConfirm: () => void) => void;
 }) {
   const [activeTab, setActiveTab] = useState<"incomes" | "expenses">("incomes");
@@ -752,6 +815,7 @@ function VariableTabs({
           startTransition={startTransition}
           kind="income"
           emptyMessage="Sin ingresos variables este ciclo"
+          usdRate={usdRate}
           modalTitle="Agregar ingreso variable"
           successMessage="Ingreso variable agregado"
           defaultDate={defaultDate}
@@ -770,6 +834,7 @@ function VariableTabs({
           startTransition={startTransition}
           kind="expense"
           emptyMessage="Sin gastos variables este ciclo"
+          usdRate={usdRate}
           modalTitle="Agregar gasto variable"
           successMessage="Gasto variable agregado"
           defaultDate={defaultDate}
@@ -794,6 +859,7 @@ function VariablePanel({
   modalTitle,
   successMessage,
   defaultDate,
+  usdRate,
   requestDelete,
 }: {
   items: MovementItem[];
@@ -808,11 +874,25 @@ function VariablePanel({
   modalTitle: string;
   successMessage: string;
   defaultDate?: string;
+  usdRate: string | null;
   requestDelete: (description: string, onConfirm: () => void) => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<MovementItem | null>(null);
   const colorClass = totalColor === "income" ? "text-income" : "text-expense";
   const { toast } = useToast();
+
+  const typeKey = kind === "income" ? "variable-income" : "variable-expense";
+
+  function closeModal() {
+    setModalOpen(false);
+    setEditing(null);
+  }
+
+  function requestEdit(item: MovementItem) {
+    setEditing(item);
+    setModalOpen(true);
+  }
 
   return (
     <div role="tabpanel">
@@ -859,9 +939,18 @@ function VariablePanel({
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className={`text-sm font-medium tabular ${colorClass}`}>
-                  {formatAmount(item.amount)}
+                <span className={`text-sm font-medium tabular ${colorClass} text-left`}>
+                  {formatMovement(item)}
                 </span>
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => requestEdit(item)}
+                  className="pressable flex h-[44px] w-[44px] items-center justify-center rounded-lg text-muted-subtle transition-colors duration-[var(--duration-fast)] hover:bg-foreground/10 hover:text-foreground active:bg-foreground/15 active:text-foreground disabled:opacity-40"
+                  aria-label={`Editar ${item.description}`}
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
                 <button
                   type="button"
                   disabled={pending}
@@ -909,46 +998,65 @@ function VariablePanel({
       {/* Modal with form */}
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={modalTitle}
+        onClose={closeModal}
+        title={editing ? editTitle(modalTitle) : modalTitle}
       >
         <AddForm
           type="variable"
           kind={kind}
-          action={createAction}
+          typeKey={typeKey}
+          item={editing}
+          action={editing ? updateTransaction : createAction}
           onSuccess={() => {
-            setModalOpen(false);
-            toast({ message: successMessage, variant: "success" });
+            toast({
+              message: editing ? editMessage(successMessage) : successMessage,
+              variant: "success",
+            });
+            closeModal();
           }}
           startTransition={startTransition}
           defaultDate={defaultDate}
+          usdRate={usdRate}
         />
       </Modal>
     </div>
   );
 }
 
-// ── Add Form (inside modal) ──────────────────────────────────────────────────
+// ── Add/Edit Form (inside modal) ─────────────────────────────────────────────
 
 function AddForm({
   type,
   kind,
+  typeKey,
+  item,
   action,
   onSuccess,
   startTransition,
   defaultDate,
+  usdRate,
 }: {
   type: "fixed" | "variable";
   kind: "income" | "expense";
+  typeKey: "fixed-income" | "fixed-expense" | "variable-income" | "variable-expense";
+  item: MovementItem | null;
   action: (fd: FormData) => Promise<void>;
   onSuccess: () => void;
   startTransition: (fn: () => Promise<void>) => void;
   defaultDate?: string;
+  usdRate: string | null;
 }) {
   const categories = kind === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const isEdit = item != null;
 
   const formRef = useRef<HTMLFormElement>(null);
   const [error, setError] = useState<string | null>(null);
+  // Editing a USD row: the editable figure is the original USD amount (D8),
+  // the stored CRC amount is a derived display value, not an input.
+  const initialCurrency = item?.currency === "USD" ? "USD" : "CRC";
+  const [currency, setCurrency] = useState<"USD" | "CRC">(initialCurrency);
+  const initialAmount =
+    item?.currency === "USD" && item?.originalAmount ? item.originalAmount : (item?.amount ?? "");
 
   return (
     <form
@@ -970,35 +1078,51 @@ function AddForm({
       }}
       className="flex flex-col gap-2.5"
     >
+      {isEdit && (
+        <>
+          <input type="hidden" name="id" value={item.id} />
+          <input type="hidden" name="type" value={typeKey} />
+        </>
+      )}
       <input
         name="description"
         placeholder="Descripción"
         required
         maxLength={120}
+        defaultValue={item?.description ?? ""}
         className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm text-foreground placeholder:text-muted-subtle focus:border-secondary focus:outline-none"
       />
       <div className="grid grid-cols-2 gap-2">
-        <input
-          name="amount"
-          type="number"
-          step="0.01"
-          min="0.01"
-          placeholder="Monto"
-          required
-          inputMode="decimal"
-          className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm tabular text-foreground placeholder:text-muted-subtle focus:border-secondary focus:outline-none"
-        />
+        <div className="relative">
+          <input
+            name="amount"
+            type="number"
+            step="0.01"
+            min="0.01"
+            placeholder={currency === "USD" ? "Monto (USD)" : "Monto"}
+            required
+            inputMode="decimal"
+            defaultValue={initialAmount}
+            aria-label={currency === "USD" ? "Monto en dólares" : "Monto en colones"}
+            className="h-[44px] w-full rounded-lg border border-card-border bg-background pl-3 pr-10 text-sm tabular text-foreground placeholder:text-muted-subtle focus:border-secondary focus:outline-none"
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-subtle"
+          >
+            {currency === "USD" ? "$" : "₡"}
+          </span>
+        </div>
         <div className="relative">
           <select
-            name="category"
-            aria-label="Categoría"
-            defaultValue=""
+            name="currency"
+            aria-label="Moneda"
+            value={currency}
+            onChange={(e) => setCurrency(e.target.value === "USD" ? "USD" : "CRC")}
             className="h-[44px] w-full appearance-none rounded-lg border border-card-border bg-background px-3 pr-8 text-sm text-foreground focus:border-secondary focus:outline-none"
           >
-            <option value="" disabled>Sin categoría</option>
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
+            <option value="CRC">CRC ₡</option>
+            <option value="USD">USD $</option>
           </select>
           <svg
             aria-hidden="true"
@@ -1012,6 +1136,26 @@ function AddForm({
           </svg>
         </div>
       </div>
+      {currency === "USD" && (
+        <p className="text-xs text-muted">
+          {usdRate
+            ? `Se convierte a colones al crear: ₡${usdRate} por USD, tasa venta BCCR`
+            : "Cuando se elija el monto en USD, se usará la tasa venta de BCCR"}
+        </p>
+      )}
+      <div className="relative">
+        <select
+          name="category"
+          aria-label="Categoría"
+          defaultValue={item?.category ?? ""}
+          className="h-[44px] w-full appearance-none rounded-lg border border-card-border bg-background px-3 pr-8 text-sm text-foreground focus:border-secondary focus:outline-none"
+        >
+          <option value="">Sin categoría</option>
+          {categories.map((cat) => (
+            <option key={cat} value={cat}>{cat}</option>
+          ))}
+        </select>
+      </div>
       {type === "fixed" ? (
         <div className="flex flex-col gap-1">
           <input
@@ -1022,6 +1166,7 @@ function AddForm({
             max={31}
             placeholder="Día del mes (1–31)"
             inputMode="numeric"
+            defaultValue={item?.dayOfMonth ?? ""}
             aria-describedby="dayOfMonth-hint"
             className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm tabular text-foreground placeholder:text-muted-subtle focus:border-secondary focus:outline-none"
           />
@@ -1033,7 +1178,7 @@ function AddForm({
         <input
           name="occurredOn"
           type="date"
-          defaultValue={defaultDate ?? todayISO()}
+          defaultValue={item?.occurredOn ?? defaultDate ?? todayISO()}
           required
           className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm text-foreground focus:border-secondary focus:outline-none"
         />
