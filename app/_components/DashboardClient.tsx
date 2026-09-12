@@ -326,10 +326,11 @@ function DashboardInner({
     : "Te sobra este ciclo";
 
   // Default date for variable add form: today if viewing current quincena, else first day of range
-  const variableDefaultDate =
-    isQuincenalActive && activeQuincena !== quincenal.currentIndex
-      ? quincenaStartDate(activeQuincena)
-      : todayISO();
+  const planningOtherQuincena =
+    isQuincenalActive && activeQuincena !== quincenal.currentIndex;
+  const variableDefaultDate = planningOtherQuincena
+    ? quincenaStartDate(activeQuincena)
+    : todayISO();
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-7 px-4 pb-[calc(16px+var(--safe-bottom))] pt-[calc(12px+var(--safe-top))]">
@@ -480,6 +481,7 @@ function DashboardInner({
           pending={pending}
           startTransition={startTransition}
           defaultDate={variableDefaultDate}
+          showDateHint={planningOtherQuincena}
           usdRate={usdRate}
           requestDelete={requestDelete}
         />
@@ -781,6 +783,7 @@ function VariableTabs({
   pending,
   startTransition,
   defaultDate,
+  showDateHint,
   usdRate,
   requestDelete,
 }: {
@@ -791,6 +794,7 @@ function VariableTabs({
   pending: boolean;
   startTransition: (fn: () => Promise<void>) => void;
   defaultDate?: string;
+  showDateHint?: boolean;
   usdRate: string | null;
   requestDelete: (description: string, onConfirm: () => void) => void;
 }) {
@@ -848,6 +852,7 @@ function VariableTabs({
           modalTitle="Agregar ingreso variable"
           successMessage="Ingreso variable agregado"
           defaultDate={defaultDate}
+          showDateHint={showDateHint}
           requestDelete={requestDelete}
         />
         </div>
@@ -867,6 +872,7 @@ function VariableTabs({
           modalTitle="Agregar gasto variable"
           successMessage="Gasto variable agregado"
           defaultDate={defaultDate}
+          showDateHint={showDateHint}
           requestDelete={requestDelete}
         />
         </div>
@@ -888,6 +894,7 @@ function VariablePanel({
   modalTitle,
   successMessage,
   defaultDate,
+  showDateHint,
   usdRate,
   requestDelete,
 }: {
@@ -903,6 +910,7 @@ function VariablePanel({
   modalTitle: string;
   successMessage: string;
   defaultDate?: string;
+  showDateHint?: boolean;
   usdRate: string | null;
   requestDelete: (description: string, onConfirm: () => void) => void;
 }) {
@@ -1045,6 +1053,7 @@ function VariablePanel({
           }}
           startTransition={startTransition}
           defaultDate={defaultDate}
+          showDateHint={showDateHint}
           usdRate={usdRate}
         />
       </Modal>
@@ -1063,6 +1072,7 @@ function AddForm({
   onSuccess,
   startTransition,
   defaultDate,
+  showDateHint,
   usdRate,
 }: {
   type: "fixed" | "variable";
@@ -1073,6 +1083,7 @@ function AddForm({
   onSuccess: () => void;
   startTransition: (fn: () => Promise<void>) => void;
   defaultDate?: string;
+  showDateHint?: boolean;
   usdRate: string | null;
 }) {
   const categories = kind === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
@@ -1204,13 +1215,21 @@ function AddForm({
           </p>
         </div>
       ) : (
-        <input
-          name="occurredOn"
-          type="date"
-          defaultValue={item?.occurredOn ?? defaultDate ?? todayISO()}
-          required
-          className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm text-foreground focus:border-secondary focus:outline-none"
-        />
+        <div className="flex flex-col gap-1">
+          <input
+            name="occurredOn"
+            type="date"
+            defaultValue={item?.occurredOn ?? defaultDate ?? todayISO()}
+            required
+            aria-describedby={showDateHint && !isEdit ? "occurredOn-hint" : undefined}
+            className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm text-foreground focus:border-secondary focus:outline-none"
+          />
+          {showDateHint && !isEdit && (
+            <p id="occurredOn-hint" className="text-xs text-muted-subtle">
+              Fecha en la quincena que estás planificando
+            </p>
+          )}
+        </div>
       )}
       {error && (
         <p className="rounded-lg border border-expense/20 bg-expense/10 px-3 py-2 text-xs text-expense">
