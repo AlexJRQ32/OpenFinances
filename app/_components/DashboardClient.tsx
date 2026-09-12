@@ -10,6 +10,7 @@ import {
   deleteVariableIncome,
   createVariableExpense,
   deleteVariableExpense,
+  updateTransaction,
   updateCycleMode,
 } from "@/app/actions";
 import type { CycleMode } from "@/lib/cycle";
@@ -24,6 +25,7 @@ import {
   RepeatIcon,
   ZapIcon,
   WalletIcon,
+  PencilIcon,
 } from "./icons";
 import Modal from "./Modal";
 import { ToastProvider, useToast } from "./Toast";
@@ -113,6 +115,14 @@ function formatDateES(iso: string | null): string {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
   return `${d}/${m}/${y}`;
+}
+
+function editTitle(base: string): string {
+  return base.replace("Agregar", "Editar");
+}
+
+function editMessage(base: string): string {
+  return base.replace("agregado", "actualizado");
 }
 
 function getDayChipLabel(dayOfMonth: number | null | undefined): string {
@@ -569,8 +579,21 @@ function FixedSectionCard({
   requestDelete: (description: string, onConfirm: () => void) => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<MovementItem | null>(null);
   const colorClass = totalColor === "income" ? "text-income" : "text-expense";
   const { toast } = useToast();
+
+  const typeKey = kind === "income" ? "fixed-income" : "fixed-expense";
+
+  function closeModal() {
+    setModalOpen(false);
+    setEditing(null);
+  }
+
+  function requestEdit(item: MovementItem) {
+    setEditing(item);
+    setModalOpen(true);
+  }
 
   return (
     <div className="glass p-4">
@@ -619,6 +642,15 @@ function FixedSectionCard({
                 <button
                   type="button"
                   disabled={pending}
+                  onClick={() => requestEdit(item)}
+                  className="pressable flex h-[44px] w-[44px] items-center justify-center rounded-lg text-muted-subtle transition-colors duration-[var(--duration-fast)] hover:bg-foreground/10 hover:text-foreground active:bg-foreground/15 active:text-foreground disabled:opacity-40"
+                  aria-label={`Editar ${item.description}`}
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
                   onClick={() => {
                     requestDelete(item.description, () => {
                       const fd = new FormData();
@@ -663,16 +695,21 @@ function FixedSectionCard({
       {/* Modal with form */}
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={modalTitle}
+        onClose={closeModal}
+        title={editing ? editTitle(modalTitle) : modalTitle}
       >
         <AddForm
           type={formType}
           kind={kind}
-          action={createAction}
+          typeKey={typeKey}
+          item={editing}
+          action={editing ? updateTransaction : createAction}
           onSuccess={() => {
-            setModalOpen(false);
-            toast({ message: successMessage, variant: "success" });
+            toast({
+              message: editing ? editMessage(successMessage) : successMessage,
+              variant: "success",
+            });
+            closeModal();
           }}
           startTransition={startTransition}
         />
@@ -811,8 +848,21 @@ function VariablePanel({
   requestDelete: (description: string, onConfirm: () => void) => void;
 }) {
   const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<MovementItem | null>(null);
   const colorClass = totalColor === "income" ? "text-income" : "text-expense";
   const { toast } = useToast();
+
+  const typeKey = kind === "income" ? "variable-income" : "variable-expense";
+
+  function closeModal() {
+    setModalOpen(false);
+    setEditing(null);
+  }
+
+  function requestEdit(item: MovementItem) {
+    setEditing(item);
+    setModalOpen(true);
+  }
 
   return (
     <div role="tabpanel">
@@ -865,6 +915,15 @@ function VariablePanel({
                 <button
                   type="button"
                   disabled={pending}
+                  onClick={() => requestEdit(item)}
+                  className="pressable flex h-[44px] w-[44px] items-center justify-center rounded-lg text-muted-subtle transition-colors duration-[var(--duration-fast)] hover:bg-foreground/10 hover:text-foreground active:bg-foreground/15 active:text-foreground disabled:opacity-40"
+                  aria-label={`Editar ${item.description}`}
+                >
+                  <PencilIcon className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  disabled={pending}
                   onClick={() => {
                     requestDelete(item.description, () => {
                       const fd = new FormData();
@@ -909,16 +968,21 @@ function VariablePanel({
       {/* Modal with form */}
       <Modal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        title={modalTitle}
+        onClose={closeModal}
+        title={editing ? editTitle(modalTitle) : modalTitle}
       >
         <AddForm
           type="variable"
           kind={kind}
-          action={createAction}
+          typeKey={typeKey}
+          item={editing}
+          action={editing ? updateTransaction : createAction}
           onSuccess={() => {
-            setModalOpen(false);
-            toast({ message: successMessage, variant: "success" });
+            toast({
+              message: editing ? editMessage(successMessage) : successMessage,
+              variant: "success",
+            });
+            closeModal();
           }}
           startTransition={startTransition}
           defaultDate={defaultDate}
@@ -928,11 +992,13 @@ function VariablePanel({
   );
 }
 
-// ── Add Form (inside modal) ──────────────────────────────────────────────────
+// ── Add/Edit Form (inside modal) ─────────────────────────────────────────────
 
 function AddForm({
   type,
   kind,
+  typeKey,
+  item,
   action,
   onSuccess,
   startTransition,
@@ -940,12 +1006,15 @@ function AddForm({
 }: {
   type: "fixed" | "variable";
   kind: "income" | "expense";
+  typeKey: "fixed-income" | "fixed-expense" | "variable-income" | "variable-expense";
+  item: MovementItem | null;
   action: (fd: FormData) => Promise<void>;
   onSuccess: () => void;
   startTransition: (fn: () => Promise<void>) => void;
   defaultDate?: string;
 }) {
   const categories = kind === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const isEdit = item != null;
 
   const formRef = useRef<HTMLFormElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -970,11 +1039,18 @@ function AddForm({
       }}
       className="flex flex-col gap-2.5"
     >
+      {isEdit && (
+        <>
+          <input type="hidden" name="id" value={item.id} />
+          <input type="hidden" name="type" value={typeKey} />
+        </>
+      )}
       <input
         name="description"
         placeholder="Descripción"
         required
         maxLength={120}
+        defaultValue={item?.description ?? ""}
         className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm text-foreground placeholder:text-muted-subtle focus:border-secondary focus:outline-none"
       />
       <div className="grid grid-cols-2 gap-2">
@@ -986,16 +1062,17 @@ function AddForm({
           placeholder="Monto"
           required
           inputMode="decimal"
+          defaultValue={item?.amount ?? ""}
           className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm tabular text-foreground placeholder:text-muted-subtle focus:border-secondary focus:outline-none"
         />
         <div className="relative">
           <select
             name="category"
             aria-label="Categoría"
-            defaultValue=""
+            defaultValue={item?.category ?? ""}
             className="h-[44px] w-full appearance-none rounded-lg border border-card-border bg-background px-3 pr-8 text-sm text-foreground focus:border-secondary focus:outline-none"
           >
-            <option value="" disabled>Sin categoría</option>
+            <option value="">Sin categoría</option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
@@ -1022,6 +1099,7 @@ function AddForm({
             max={31}
             placeholder="Día del mes (1–31)"
             inputMode="numeric"
+            defaultValue={item?.dayOfMonth ?? ""}
             aria-describedby="dayOfMonth-hint"
             className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm tabular text-foreground placeholder:text-muted-subtle focus:border-secondary focus:outline-none"
           />
@@ -1033,7 +1111,7 @@ function AddForm({
         <input
           name="occurredOn"
           type="date"
-          defaultValue={defaultDate ?? todayISO()}
+          defaultValue={item?.occurredOn ?? defaultDate ?? todayISO()}
           required
           className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm text-foreground focus:border-secondary focus:outline-none"
         />
