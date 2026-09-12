@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* ── Design Tokens ─────────────────────────────────────────────────────────── */
+/* ── Design Tokens (Dark — default) ────────────────────────────────────────── */
 
 :root {
   /* Surfaces */
@@ -46,7 +46,76 @@
   /* Font */
   --font-sans: var(--font-quicksand), ui-sans-serif, system-ui, sans-serif;
 
+  /* Theme-scoped tokens */
+  --glass-bg: rgba(19, 19, 22, 0.75);
+  --glass-sm-bg: rgba(19, 19, 22, 0.6);
+  --track-bg: rgba(0, 0, 0, 0.4);
+  --toast-bg: rgba(23, 23, 27, 0.95);
+  --gradient-from: #0e0e10;
+  --gradient-to: #09090b;
+  --glow-income: rgba(16, 185, 129, 0.08);
+  --glow-secondary: rgba(59, 130, 246, 0.06);
+  --aurora-border: rgba(255, 255, 255, 0.14);
+  --aurora-c1: rgba(16, 185, 129, 0.10);
+  --aurora-c2: rgba(59, 130, 246, 0.04);
+  --aurora-c3: rgba(16, 185, 129, 0.04);
+  --modal-backdrop: rgba(0, 0, 0, 0.6);
+  --scrollbar-thumb: rgba(148, 163, 184, 0.2);
+  --scrollbar-thumb-hover: rgba(148, 163, 184, 0.35);
+  --selection-bg: rgba(59, 130, 246, 0.35);
+  --selection-color: #fff;
+  --date-filter: invert(0.7);
+
   color-scheme: dark;
+}
+
+/* ── Light Theme ───────────────────────────────────────────────────────────── */
+
+[data-theme="light"] {
+  --bg: #F7F5F0;
+  --card: #FFFDF9;
+  --card-border: rgba(28, 28, 24, 0.10);
+  --card-border-hover: rgba(28, 28, 24, 0.18);
+
+  --primary: #1e40af;
+  --secondary: #1D4ED8;
+  --accent: #047857;
+
+  --income: #047857;
+  --income-muted: #065f46;
+  --expense: #B91C1C;
+  --expense-muted: #881337;
+  --sobrante-pos: #047857;
+  --sobrante-neg: #B91C1C;
+  --destructive: #B91C1C;
+
+  --foreground: #201F1B;
+  --muted: #6B6A63;
+  --muted-subtle: #8A897F;
+
+  --shadow-card: 0 4px 24px rgba(28, 28, 24, 0.06);
+  --shadow-card-lg: 0 8px 32px rgba(28, 28, 24, 0.08);
+
+  --glass-bg: rgba(255, 253, 249, 0.75);
+  --glass-sm-bg: rgba(255, 253, 249, 0.6);
+  --track-bg: rgba(28, 28, 24, 0.08);
+  --toast-bg: rgba(255, 253, 249, 0.95);
+  --gradient-from: #EFEBE4;
+  --gradient-to: #F7F5F0;
+  --glow-income: rgba(4, 120, 87, 0.04);
+  --glow-secondary: rgba(29, 78, 216, 0.03);
+  --aurora-border: rgba(28, 28, 24, 0.08);
+  --aurora-c1: rgba(4, 120, 87, 0.04);
+  --aurora-c2: rgba(29, 78, 216, 0.02);
+  --aurora-c3: rgba(4, 120, 87, 0.02);
+  --modal-backdrop: rgba(28, 28, 24, 0.3);
+  --scrollbar-thumb: rgba(28, 28, 24, 0.12);
+  --scrollbar-thumb-hover: rgba(28, 28, 24, 0.22);
+  --selection-bg: rgba(29, 78, 216, 0.2);
+  --selection-color: #1D4ED8;
+  --date-filter: none;
+
+  color-scheme: light;
 }
 
 /* ── Theme (Tailwind 4) ────────────────────────────────────────────────────── */
@@ -91,8 +160,8 @@ body {
 /* ── Browser Surfaces ──────────────────────────────────────────────────────── */
 
 ::selection {
-  background: rgba(59, 130, 246, 0.35);
-  color: #fff;
+  background: var(--selection-bg);
+  color: var(--selection-color);
 }
 
 :focus-visible {
@@ -109,11 +178,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.35);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Caret */
@@ -130,7 +199,7 @@ textarea {
 /* ── Glass Card ────────────────────────────────────────────────────────────── */
 
 .glass {
-  background: rgba(19, 19, 22, 0.75);
+  background: var(--glass-bg);
   backdrop-filter: blur(var(--blur-card));
   -webkit-backdrop-filter: blur(var(--blur-card));
   border: 1px solid var(--card-border);
@@ -139,7 +208,7 @@ textarea {
 }
 
 .glass-sm {
-  background: rgba(19, 19, 22, 0.6);
+  background: var(--glass-sm-bg);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid var(--card-border);
@@ -157,7 +226,7 @@ textarea {
   max-width: 700px;
   max-height: 700px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(16, 185, 129, 0.08), transparent 70%);
+  background: radial-gradient(circle, var(--glow-income), transparent 70%);
   pointer-events: none;
   z-index: -1;
 }
@@ -171,7 +240,7 @@ textarea {
   max-width: 650px;
   max-height: 650px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.06), transparent 70%);
+  background: radial-gradient(circle, var(--glow-secondary), transparent 70%);
   pointer-events: none;
   z-index: -1;
 }
@@ -179,7 +248,7 @@ textarea {
 .bg-base-gradient {
   position: fixed;
   inset: 0;
-  background: linear-gradient(180deg, #0e0e10 0%, #09090b 100%);
+  background: linear-gradient(180deg, var(--gradient-from) 0%, var(--gradient-to) 100%);
   pointer-events: none;
   z-index: -2;
 }
@@ -189,7 +258,7 @@ textarea {
 .hero-aurora {
   position: relative;
   overflow: hidden;
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  border-top: 1px solid var(--aurora-border);
 }
 
 .hero-aurora::before {
@@ -201,9 +270,9 @@ textarea {
   height: 120%;
   background: conic-gradient(
     from 200deg at 50% 0%,
-    rgba(16, 185, 129, 0.10),
-    rgba(59, 130, 246, 0.04),
-    rgba(16, 185, 129, 0.04),
+    var(--aurora-c1),
+    var(--aurora-c2),
+    var(--aurora-c3),
     transparent 65%
   );
   pointer-events: none;
@@ -311,7 +380,7 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--modal-backdrop);
   backdrop-filter: blur(var(--blur-card));
   -webkit-backdrop-filter: blur(var(--blur-card));
   opacity: 0;
@@ -397,9 +466,9 @@ input[type="submit"] {
   touch-action: manipulation;
 }
 
-/* ── Form elements dark styling ────────────────────────────────────────────── */
+/* ── Form elements ─────────────────────────────────────────────────────────── */
 
 input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(0.7);
+  filter: var(--date-filter);
   cursor: pointer;
 }

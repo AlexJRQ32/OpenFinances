@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition, useState, useRef, useCallback, type FormEvent } from "react";
+import { useTransition, useState, useRef, useCallback, useEffect, type FormEvent } from "react";
 import {
   createFixedIncome,
   deleteFixedIncome,
@@ -26,6 +26,8 @@ import {
   ZapIcon,
   WalletIcon,
   PencilIcon,
+  SunIcon,
+  MoonIcon,
 } from "./icons";
 import Modal from "./Modal";
 import { ToastProvider, useToast } from "./Toast";
@@ -280,6 +282,22 @@ function DashboardInner({
       : quincenal.q2
     : null;
 
+  // ── Theme toggle ──────────────────────────────────────────────────────
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    setTheme(
+      (document.documentElement.getAttribute("data-theme") as "dark" | "light") || "dark"
+    );
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    document.cookie = `theme=${next};path=/;max-age=31536000;SameSite=Lax`;
+    setTheme(next);
+  }, [theme]);
+
   // Client-computed badge label: instant on mode/quincena switch, no server round-trip.
   const now = new Date();
   const displayCycleLabel =
@@ -308,10 +326,11 @@ function DashboardInner({
     : "Te sobra este ciclo";
 
   // Default date for variable add form: today if viewing current quincena, else first day of range
-  const variableDefaultDate =
-    isQuincenalActive && activeQuincena !== quincenal.currentIndex
-      ? quincenaStartDate(activeQuincena)
-      : todayISO();
+  const planningOtherQuincena =
+    isQuincenalActive && activeQuincena !== quincenal.currentIndex;
+  const variableDefaultDate = planningOtherQuincena
+    ? quincenaStartDate(activeQuincena)
+    : todayISO();
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-7 px-4 pb-[calc(16px+var(--safe-bottom))] pt-[calc(12px+var(--safe-top))]">
@@ -321,9 +340,19 @@ function DashboardInner({
           <h1 className="text-lg font-semibold text-foreground">
             Hola, {userName ?? "Usuario"}
           </h1>
-          <span className="rounded-full border border-card-border bg-card/60 px-3 py-1 text-xs font-medium text-muted">
-            {displayCycleLabel}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full border border-card-border bg-card/60 px-3 py-1 text-xs font-medium text-muted">
+              {displayCycleLabel}
+            </span>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="pressable flex h-[44px] w-[44px] items-center justify-center rounded-lg text-muted transition-colors duration-[var(--duration-fast)] hover:text-foreground"
+              aria-label="Cambiar tema"
+            >
+              {theme === "light" ? <MoonIcon className="h-5 w-5" /> : <SunIcon className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
         <SegmentedControl
           options={[
@@ -452,6 +481,7 @@ function DashboardInner({
           pending={pending}
           startTransition={startTransition}
           defaultDate={variableDefaultDate}
+          showDateHint={planningOtherQuincena}
           usdRate={usdRate}
           requestDelete={requestDelete}
         />
@@ -474,7 +504,8 @@ function SegmentedControl<T extends string>({
 }) {
   return (
     <div
-      className="inline-flex rounded-full border border-card-border bg-black/40 p-[3px]"
+      className="inline-flex rounded-full border border-card-border p-[3px]"
+      style={{ backgroundColor: "var(--track-bg)" }}
       role="radiogroup"
     >
       {options.map((opt) => {
@@ -752,6 +783,7 @@ function VariableTabs({
   pending,
   startTransition,
   defaultDate,
+  showDateHint,
   usdRate,
   requestDelete,
 }: {
@@ -762,6 +794,7 @@ function VariableTabs({
   pending: boolean;
   startTransition: (fn: () => Promise<void>) => void;
   defaultDate?: string;
+  showDateHint?: boolean;
   usdRate: string | null;
   requestDelete: (description: string, onConfirm: () => void) => void;
 }) {
@@ -819,6 +852,7 @@ function VariableTabs({
           modalTitle="Agregar ingreso variable"
           successMessage="Ingreso variable agregado"
           defaultDate={defaultDate}
+          showDateHint={showDateHint}
           requestDelete={requestDelete}
         />
         </div>
@@ -838,6 +872,7 @@ function VariableTabs({
           modalTitle="Agregar gasto variable"
           successMessage="Gasto variable agregado"
           defaultDate={defaultDate}
+          showDateHint={showDateHint}
           requestDelete={requestDelete}
         />
         </div>
@@ -859,6 +894,7 @@ function VariablePanel({
   modalTitle,
   successMessage,
   defaultDate,
+  showDateHint,
   usdRate,
   requestDelete,
 }: {
@@ -874,6 +910,7 @@ function VariablePanel({
   modalTitle: string;
   successMessage: string;
   defaultDate?: string;
+  showDateHint?: boolean;
   usdRate: string | null;
   requestDelete: (description: string, onConfirm: () => void) => void;
 }) {
@@ -1016,6 +1053,7 @@ function VariablePanel({
           }}
           startTransition={startTransition}
           defaultDate={defaultDate}
+          showDateHint={showDateHint}
           usdRate={usdRate}
         />
       </Modal>
@@ -1034,6 +1072,7 @@ function AddForm({
   onSuccess,
   startTransition,
   defaultDate,
+  showDateHint,
   usdRate,
 }: {
   type: "fixed" | "variable";
@@ -1044,6 +1083,7 @@ function AddForm({
   onSuccess: () => void;
   startTransition: (fn: () => Promise<void>) => void;
   defaultDate?: string;
+  showDateHint?: boolean;
   usdRate: string | null;
 }) {
   const categories = kind === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
@@ -1175,13 +1215,21 @@ function AddForm({
           </p>
         </div>
       ) : (
-        <input
-          name="occurredOn"
-          type="date"
-          defaultValue={item?.occurredOn ?? defaultDate ?? todayISO()}
-          required
-          className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm text-foreground focus:border-secondary focus:outline-none"
-        />
+        <div className="flex flex-col gap-1">
+          <input
+            name="occurredOn"
+            type="date"
+            defaultValue={item?.occurredOn ?? defaultDate ?? todayISO()}
+            required
+            aria-describedby={showDateHint && !isEdit ? "occurredOn-hint" : undefined}
+            className="h-[44px] w-full rounded-lg border border-card-border bg-background px-3 text-sm text-foreground focus:border-secondary focus:outline-none"
+          />
+          {showDateHint && !isEdit && (
+            <p id="occurredOn-hint" className="text-xs text-muted-subtle">
+              Fecha en la quincena que estás planificando
+            </p>
+          )}
+        </div>
       )}
       {error && (
         <p className="rounded-lg border border-expense/20 bg-expense/10 px-3 py-2 text-xs text-expense">

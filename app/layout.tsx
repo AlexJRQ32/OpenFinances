@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Quicksand } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 
 const quicksand = Quicksand({
@@ -33,10 +34,14 @@ export const viewport: Viewport = {
   interactiveWidget: "resizes-content",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const cookieStore = await cookies();
+  const theme = cookieStore.get("theme")?.value === "light" ? "light" : "dark";
+
   return (
     <html
       lang="es"
+      data-theme={theme}
       className={`${quicksand.variable} h-full antialiased`}
     >
       <body className="min-h-dvh flex flex-col">
