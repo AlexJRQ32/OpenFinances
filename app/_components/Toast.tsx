@@ -113,7 +113,7 @@ function ToastCard({ toast: t }: { toast: ToastItem }) {
   return (
     <div
       role="status"
-      style={{ backgroundColor: "rgba(23,23,27,0.95)", boxShadow: "var(--shadow-card-lg)" }}
+      style={{ backgroundColor: "var(--toast-bg)", boxShadow: "var(--shadow-card-lg)" }}
       className={`toast-card pointer-events-auto flex w-full items-center gap-3 rounded-xl border border-card-border px-4 py-3 ${
         mounted && !t.leaving ? "is-visible" : ""
       }${t.leaving ? " is-leaving" : ""}`}
